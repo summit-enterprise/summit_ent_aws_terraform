@@ -7,6 +7,14 @@ terraform {
     }
   }
   required_version = ">= 1.0"
+  
+  # Configure Terraform Cloud backend
+  cloud {
+    organization = "summit-enterprise"  # Replace with your Terraform Cloud organization
+    workspaces {
+      name = "summit_ent_aws_terraform"  # Replace with your workspace name
+    }
+  }
 }
 
 provider "aws" {
