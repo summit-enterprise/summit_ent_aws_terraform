@@ -1,0 +1,17 @@
+# Ignore the .terraform directory, which contains provider plugins, modules, 
+# and other dependency binaries. This is the main source of "huge" files.
+**/.terraform/*
+
+# Exclude the Git version control directory itself
+**/.git/*
+
+# Ignore local state files (if you are using remote state, these are just local copies/backups)
+*.tfstate
+*.tfstate.*
+
+# Ignore crash logs
+crash.log
+crash.*.log
+
+# Ignore saved plan files
+*.tfplan
