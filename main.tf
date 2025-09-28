@@ -254,12 +254,21 @@ resource "aws_ecr_repository" "data_jobs" {
 }
 
 # ========================================
+# KEY PAIR
+# ========================================
+
+data "aws_key_pair" "terraform_key" {
+  key_name = "terraform-key"
+}
+
+# ========================================
 # MONITORING INSTANCE
 # ========================================
 
 resource "aws_instance" "monitoring" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t3.small"
+  key_name               = data.aws_key_pair.terraform_key.key_name
   vpc_security_group_ids = [aws_security_group.monitoring.id]
   subnet_id             = aws_subnet.public[0].id
 
