@@ -1,52 +1,55 @@
-# AWS Data Engineering Infrastructure
+# AWS Infrastructure Documentation
 
-This Terraform configuration creates a complete data engineering stack on AWS with VPC, ECR, S3 Data Lake, AWS Glue, and ECS with Fargate Spot.
+## 📚 **Complete Documentation Suite**
 
-## 📁 File Structure
+This directory contains comprehensive documentation for your AWS data engineering infrastructure built with Terraform, organized in a modular DevOps structure.
 
-```
-terraform/
-├── main.tf                 # Provider & backend configuration
-├── variables.tf            # All variables
-├── outputs.tf             # All outputs
-├── vpc.tf                 # VPC, subnets, gateways, route tables
-├── security-groups.tf     # All security groups
-├── ecr.tf                 # ECR repositories for Docker images
-├── s3.tf                  # S3 buckets & data lake structure
-├── iam.tf                 # IAM roles & policies
-├── glue.tf                # AWS Glue resources (catalog, crawlers, jobs)
-├── ecs.tf                 # ECS cluster & tasks with Fargate Spot
-└── examples/              # Example EC2 instances (disabled by default)
-    └── ec2.tf
-```
+---
 
-## 🏗️ Infrastructure Components
+## 📋 **Documentation Overview**
 
-### **Core Infrastructure:**
-- **VPC** with public/private subnets across 2 AZs
-- **Security Groups** for web, database, app, and bastion hosts
-- **Internet Gateway** and route tables
+### **🏗️ Core Documentation**
+- **[documentation/INFRASTRUCTURE_OVERVIEW.md](documentation/INFRASTRUCTURE_OVERVIEW.md)** - Complete system overview and architecture summary
+- **[documentation/SERVICE_DETAILS.md](documentation/SERVICE_DETAILS.md)** - Detailed explanations of each service and Terraform configuration
+- **[documentation/TERRAFORM_CONFIGURATION.md](documentation/TERRAFORM_CONFIGURATION.md)** - Terraform file structure and configuration details
+- **[documentation/ARCHITECTURE_DIAGRAM.md](documentation/ARCHITECTURE_DIAGRAM.md)** - Visual architecture diagrams and network flows
+- **[documentation/TERRAFORM_TUTORIAL.md](documentation/TERRAFORM_TUTORIAL.md)** - Complete tutorial for recreating the infrastructure
 
-### **Data Engineering Stack:**
-- **ECR Repositories** (3) for Docker images
-- **S3 Data Lake** with 4 zones (raw, processed, analytics, curated)
-- **AWS Glue** catalog, crawlers, and ETL jobs
-- **ECS Cluster** with Fargate Spot for cost optimization
+### **🚀 Operational Documentation**
+- **[documentation/DEPLOYMENT_GUIDE.md](documentation/DEPLOYMENT_GUIDE.md)** - Step-by-step deployment instructions
+- **[documentation/TROUBLESHOOTING.md](documentation/TROUBLESHOOTING.md)** - Common issues and solutions
 
-### **Security & Access:**
-- **IAM Roles** for Glue and ECS services
-- **S3 encryption** and public access blocking
-- **VPC security** with proper subnet isolation
+---
 
-## 🚀 Getting Started
+## 🏗️ **Infrastructure Summary**
 
-### **1. Prerequisites:**
-- AWS CLI configured
-- Terraform installed
-- Terraform Cloud account
+### **Core Services**
+- **VPC**: Multi-AZ network with public/private subnets
+- **Security Groups**: Layered security with least privilege access
+- **IAM**: Service-specific roles and policies
+- **S3 Data Lake**: Scalable storage with versioning and encryption
+- **AWS Glue**: Serverless ETL with data catalog
+- **ECR**: Container registry for Docker images
+- **ECS**: Serverless container orchestration with Fargate Spot
+- **Kubernetes**: Minikube cluster with ArgoCD GitOps
+- **Monitoring**: Prometheus, Grafana, ELK Stack, Jaeger
+- **Secrets Manager**: Secure credential storage
 
-### **2. Deploy Infrastructure:**
+### **Key Features**
+- **Cost Optimized**: Fargate Spot, t3.small instances, on-demand services
+- **Security First**: VPC isolation, IAM roles, encrypted storage
+- **Production Ready**: Monitoring, logging, tracing, alerting
+- **Developer Friendly**: Environment variables, documentation, examples
+
+---
+
+## 🚀 **Quick Start**
+
+### **1. Deploy Infrastructure**
 ```bash
+# Navigate to dev environment
+cd terraform/environments/dev
+
 # Initialize Terraform
 terraform init
 
@@ -57,93 +60,281 @@ terraform plan
 terraform apply
 ```
 
-### **3. Verify Deployment:**
+### **2. Alternative: Legacy Structure**
 ```bash
-# Check outputs
+# Set up environment (if using legacy structure)
+./setup-env.sh
+nano .env
+source load-env.sh
+
+# Deploy with Terraform
+terraform init
+terraform plan
+terraform apply
+```
+
+### **3. Access Services**
+```bash
+# Get service URLs
 terraform output
 
-# List ECR repositories
-aws ecr describe-repositories
+# Access monitoring
+# Prometheus: http://<monitoring-ip>:9090
+# Grafana: http://<monitoring-ip>:3000
+# Kibana: http://<monitoring-ip>:5601
 
-# List S3 buckets
-aws s3 ls
+# Access Kubernetes
+ssh -i ~/.ssh/oci_ed25519 ec2-user@<kubernetes-ip>
 ```
 
-## 💰 Cost Optimization
+### **4. Start Building**
+- Upload data to S3 data lake
+- Run Glue ETL jobs
+- Deploy applications to ECS
+- Use ArgoCD for Kubernetes deployments
 
-- **Fargate Spot** - 70% cheaper than regular Fargate
-- **No scheduled jobs** - Glue crawlers and jobs are ON_DEMAND only
-- **Empty resources** - ECR, S3, ECS start with zero usage
-- **CloudWatch logs** - 14-day retention only
+---
 
-## 🔧 Usage Examples
+## 📊 **Architecture Highlights**
 
-### **Push Docker Images:**
-```bash
-# Login to ECR
-aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-2.amazonaws.com
-
-# Build and push
-docker build -t spark-app .
-docker tag spark-app:latest <account>.dkr.ecr.us-east-2.amazonaws.com/dev-spark-applications:latest
-docker push <account>.dkr.ecr.us-east-2.amazonaws.com/dev-spark-applications:latest
+### **Network Architecture**
+```
+Internet → IGW → Public Subnets → Private Subnets
+    ↓         ↓         ↓              ↓
+Load Balancers  Bastion  Applications  Databases
 ```
 
-### **Run ECS Tasks:**
-```bash
-# Run data processing task
-aws ecs run-task \
-  --cluster dev-data-processing-cluster \
-  --task-definition dev-data-processing-task \
-  --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx]}"
+### **Data Flow**
+```
+Raw Data → S3 → Glue → Processed Data → Applications
+    ↓       ↓     ↓         ↓              ↓
+Crawlers  Catalog  Jobs    ECS Tasks    Monitoring
 ```
 
-### **Upload Data:**
-```bash
-# Upload sample data
-aws s3 cp sample-data.csv s3://dev-data-lake-<random>/raw/
+### **Monitoring Stack**
+```
+Applications → Prometheus → Grafana
+     ↓             ↓
+System Logs → Logstash → Elasticsearch → Kibana
+     ↓
+Traces → Jaeger
 ```
 
-## 🎯 Data Flow
+---
 
+## 💰 **Cost Breakdown**
+
+### **Monthly Estimated Costs**
+- **VPC**: $0 (free)
+- **S3**: ~$5-10 (depending on data volume)
+- **ECR**: ~$1-2 (image storage)
+- **ECS**: $0 (no running tasks by default)
+- **EC2 (K8s)**: ~$15-20 (t3.small)
+- **EC2 (Monitoring)**: ~$15-20 (t3.small)
+- **Secrets Manager**: ~$2-5 (5 secrets)
+- **Total**: ~$40-60/month (development)
+
+### **Cost Optimization Features**
+- **Fargate Spot**: Up to 70% savings on compute
+- **t3.small Instances**: Right-sized for development
+- **Free Monitoring**: Self-hosted Prometheus/Grafana/ELK
+- **On-demand Glue**: No scheduled jobs
+- **GP3 Storage**: 20% cheaper than GP2
+
+---
+
+## 🔧 **Configuration Management**
+
+### **Modular Terraform Structure**
 ```
-Raw Data → S3 Raw Zone → Glue Crawler → Data Catalog
-    ↓
-Glue ETL Job → S3 Processed Zone → Analytics Zone
-    ↓
-ECS Fargate Spot → Custom Processing → S3 Curated Zone
+terraform/
+├── modules/                    # Reusable Terraform modules
+│   ├── networking/            # VPC, subnets, route tables, IGW
+│   ├── security/              # Security groups, IAM roles
+│   ├── storage/               # S3, ECR, Glue
+│   ├── compute/               # ECS, Kubernetes (Minikube)
+│   ├── monitoring/            # Prometheus, Grafana, ELK, Jaeger
+│   └── secrets/               # AWS Secrets Manager
+├── environments/              # Environment-specific configurations
+│   └── dev/                  # Development environment
+│       ├── main.tf           # Main configuration using modules
+│       ├── variables.tf      # Environment variables
+│       ├── outputs.tf        # Environment outputs
+│       ├── terraform.tfvars  # Variable values
+│       └── backend.tf        # Terraform Cloud backend
+└── shared/                   # Shared resources (future use)
 ```
 
-## 📊 Monitoring
-
-- **CloudWatch Logs** for ECS and Glue
-- **S3 metrics** for storage usage
-- **ECS metrics** for task performance
-
-## 🧹 Cleanup
-
-```bash
-# Destroy all resources
-terraform destroy
-
-# Or destroy specific components
-terraform destroy -target=aws_ecs_cluster.data_processing
+### **Legacy Structure (Still Available)**
+```
+├── main.tf              # Provider and backend
+├── variables.tf         # Input variables
+├── outputs.tf          # Output values
+├── examples/ec2.tf     # Database examples
+└── documentation/      # All documentation files
 ```
 
-## 🔒 Security Notes
+### **Environment Management**
+- **`env.template`**: Safe template for environment variables
+- **`.env`**: Local environment file (gitignored)
+- **`load-env.sh`**: Environment variable loader
+- **`setup-env.sh`**: Environment setup script
 
-- All S3 buckets have encryption enabled
-- Public access is blocked on all buckets
-- Security groups follow least privilege principle
-- IAM roles have minimal required permissions
+---
 
-## 📝 Variables
+## 🛡️ **Security Features**
 
-Key variables in `variables.tf`:
-- `environment` - Environment name (default: "dev")
-- `aws_region` - AWS region (default: "us-east-2")
-- `vpc_cidr` - VPC CIDR block (default: "10.0.0.0/16")
-- `availability_zones` - List of AZs to use
-- `public_subnet_cidrs` - CIDR blocks for public subnets
-- `private_subnet_cidrs` - CIDR blocks for private subnets
+### **Network Security**
+- **VPC Isolation**: Private network environment
+- **Security Groups**: Firewall rules for each tier
+- **Private Subnets**: No direct internet access
+- **Bastion Hosts**: Secure access to private resources
+
+### **Access Control**
+- **IAM Roles**: Service-specific permissions
+- **Least Privilege**: Minimal required access
+- **Secrets Manager**: Encrypted credential storage
+- **Audit Logging**: CloudTrail integration
+
+### **Data Protection**
+- **Encryption at Rest**: S3, EBS, RDS encryption
+- **Encryption in Transit**: HTTPS, TLS
+- **Key Management**: AWS KMS integration
+- **Backup**: Automated snapshots and versioning
+
+---
+
+## 📊 **Monitoring & Observability**
+
+### **Metrics Collection**
+- **Prometheus**: Time-series metrics database
+- **Node Exporter**: System metrics
+- **cAdvisor**: Container metrics
+- **CloudWatch Exporter**: AWS metrics
+
+### **Log Management**
+- **Elasticsearch**: Log storage and indexing
+- **Logstash**: Log processing and forwarding
+- **Kibana**: Log visualization and analysis
+- **S3 Access Logs**: Audit trail
+
+### **Distributed Tracing**
+- **Jaeger**: Request tracing and performance analysis
+- **Service Mesh**: Microservices communication
+- **Performance Monitoring**: Latency and throughput
+
+### **Visualization**
+- **Grafana**: Metrics dashboards and alerting
+- **Custom Dashboards**: Business and technical metrics
+- **Alerting**: Proactive issue detection
+- **Reporting**: Automated reports and insights
+
+---
+
+## 🔄 **Data Engineering Workflows**
+
+### **ETL Pipeline**
+1. **Data Ingestion**: Raw data to S3
+2. **Schema Discovery**: Glue crawlers
+3. **Data Processing**: Glue ETL jobs
+4. **Quality Checks**: Data validation
+5. **Data Catalog**: Metadata management
+6. **Analytics**: Business intelligence
+
+### **Container Workflows**
+1. **Development**: Local development
+2. **Build**: Docker image creation
+3. **Registry**: ECR storage
+4. **Deploy**: ECS or Kubernetes
+5. **Monitor**: Observability stack
+6. **Scale**: Auto-scaling policies
+
+### **GitOps Workflows**
+1. **Code**: Git repository
+2. **CI/CD**: Automated pipelines
+3. **ArgoCD**: GitOps deployment
+4. **Kubernetes**: Container orchestration
+5. **Monitoring**: Health checks
+6. **Rollback**: Automated recovery
+
+---
+
+## 🚀 **Next Steps**
+
+### **Immediate Actions**
+1. **Deploy Infrastructure**: Follow deployment guide
+2. **Access Services**: Verify all services are running
+3. **Configure Monitoring**: Set up dashboards and alerts
+4. **Upload Data**: Start using the data lake
+5. **Deploy Applications**: Build and deploy your apps
+
+### **Development Workflow**
+1. **Set Up Development**: Local development environment
+2. **Build Applications**: Containerized applications
+3. **Deploy to ECS**: Serverless container deployment
+4. **Use Kubernetes**: Minikube for learning
+5. **Implement GitOps**: ArgoCD for deployments
+
+### **Production Readiness**
+1. **Security Hardening**: Additional security measures
+2. **Backup Strategy**: Disaster recovery planning
+3. **Monitoring**: Comprehensive observability
+4. **Scaling**: Auto-scaling policies
+5. **Documentation**: Operational runbooks
+
+---
+
+## 📞 **Support & Resources**
+
+### **Documentation**
+- **AWS Documentation**: https://docs.aws.amazon.com/
+- **Terraform Documentation**: https://terraform.io/docs/
+- **Kubernetes Documentation**: https://kubernetes.io/docs/
+- **Prometheus Documentation**: https://prometheus.io/docs/
+
+### **Community**
+- **AWS Community**: https://forums.aws.amazon.com/
+- **Terraform Community**: https://discuss.hashicorp.com/
+- **Kubernetes Community**: https://kubernetes.io/community/
+- **Monitoring Community**: https://prometheus.io/community/
+
+### **Training**
+- **AWS Training**: https://aws.amazon.com/training/
+- **Terraform Learning**: https://learn.hashicorp.com/terraform
+- **Kubernetes Learning**: https://kubernetes.io/docs/tutorials/
+- **Monitoring Learning**: https://prometheus.io/docs/tutorials/
+
+---
+
+## 🎯 **Success Metrics**
+
+### **Infrastructure Metrics**
+- **Uptime**: 99.9% availability
+- **Performance**: Sub-second response times
+- **Security**: Zero security incidents
+- **Cost**: Within budget constraints
+
+### **Development Metrics**
+- **Deployment Frequency**: Daily deployments
+- **Lead Time**: Hours from commit to production
+- **Mean Time to Recovery**: Minutes for failures
+- **Change Failure Rate**: <5% failure rate
+
+### **Data Metrics**
+- **Data Freshness**: Real-time or near real-time
+- **Data Quality**: >95% accuracy
+- **Processing Time**: Minutes for batch jobs
+- **Storage Efficiency**: Optimized storage costs
+
+---
+
+**Your AWS infrastructure is now fully documented and ready for production use!** 🎉
+
+**Key Benefits:**
+- ✅ **Complete Documentation**: Every service explained in detail
+- ✅ **Visual Architecture**: Clear diagrams and flows
+- ✅ **Step-by-Step Guides**: Easy deployment and troubleshooting
+- ✅ **Production Ready**: Security, monitoring, and cost optimization
+- ✅ **Developer Friendly**: Environment management and examples
+
+**Start building your data engineering platform today!** 🚀

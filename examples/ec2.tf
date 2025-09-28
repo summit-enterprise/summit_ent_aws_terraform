@@ -25,7 +25,7 @@ resource "aws_db_instance" "mysql" {
 
   db_name  = "mydb"
   username = "admin"
-  password = "changeme123"  # Use AWS Secrets Manager in production
+  password = random_password.mysql_password.result  # Generated password
 
   vpc_security_group_ids = [aws_security_group.database.id]
   db_subnet_group_name   = aws_db_subnet_group.main.name
@@ -35,6 +35,9 @@ resource "aws_db_instance" "mysql" {
   maintenance_window     = "sun:04:00-sun:05:00"
 
   skip_final_snapshot = true
+
+  # Store password in Secrets Manager
+  manage_master_user_password = false  # We're managing it ourselves
 
   tags = {
     Name        = "${var.environment}-mysql"
@@ -57,6 +60,11 @@ resource "aws_elasticache_replication_group" "redis" {
   node_type            = "cache.t3.micro"
   port                 = 6379
   parameter_group_name = "default.redis7"
+  
+  # Enable authentication
+  auth_token = random_password.redis_password.result
+  transit_encryption_enabled = true
+  at_rest_encryption_enabled = true
 
   num_cache_clusters = 2
 

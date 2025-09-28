@@ -64,7 +64,7 @@ resource "aws_glue_job" "data_processing_job" {
     "--job-language"                    = "python"
     "--job-bookmark-option"            = "job-bookmark-enable"
     "--enable-metrics"                 = "true"
-    "--enable-continuous-cloudwatch-log" = "true"
+        # "--enable-continuous-cloudwatch-log" = "true"  # CloudWatch logging disabled
     "--TempDir"                        = "s3://${aws_s3_bucket.glue_scripts.bucket}/temp/"
     "--job-bookmark-option"            = "job-bookmark-enable"
   }
@@ -91,7 +91,7 @@ resource "aws_glue_job" "data_quality_job" {
   default_arguments = {
     "--job-language"                    = "python"
     "--enable-metrics"                 = "true"
-    "--enable-continuous-cloudwatch-log" = "true"
+        # "--enable-continuous-cloudwatch-log" = "true"  # CloudWatch logging disabled
     "--TempDir"                        = "s3://${aws_s3_bucket.glue_scripts.bucket}/temp/"
   }
 
@@ -137,13 +137,14 @@ resource "aws_glue_trigger" "etl_trigger" {
   }
 }
 
-# CloudWatch Log Group for Glue
-resource "aws_cloudwatch_log_group" "glue_logs" {
-  name              = "/aws-glue/jobs/${var.environment}"
-  retention_in_days = 14
+# CloudWatch Log Group for Glue - DISABLED
+# Uncomment the block below to enable CloudWatch logging
+# resource "aws_cloudwatch_log_group" "glue_logs" {
+#   name              = "/aws-glue/jobs/${var.environment}"
+#   retention_in_days = 14
 
-  tags = {
-    Name        = "${var.environment}-glue-logs"
-    Environment = var.environment
-  }
-}
+#   tags = {
+#     Name        = "${var.environment}-glue-logs"
+#     Environment = var.environment
+#   }
+# }

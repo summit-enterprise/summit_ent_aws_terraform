@@ -121,10 +121,82 @@ output "kubernetes_public_dns" {
 
 output "kubernetes_ssh_command" {
   description = "SSH command to connect to Kubernetes instance"
-  value       = "ssh -i ~/.ssh/id_rsa ec2-user@${aws_instance.kubernetes[0].public_ip}"
+  value       = "ssh -i ~/.ssh/oci_ed25519 ec2-user@${aws_instance.kubernetes[0].public_ip}"
 }
 
 output "kubernetes_minikube_dashboard" {
   description = "Minikube dashboard access command"
-  value       = "ssh -i ~/.ssh/id_rsa -L 8080:localhost:8080 ec2-user@${aws_instance.kubernetes[0].public_ip} 'minikube dashboard --url'"
+  value       = "ssh -i ~/.ssh/oci_ed25519 -L 8080:localhost:8080 ec2-user@${aws_instance.kubernetes[0].public_ip} 'minikube dashboard --url'"
+}
+
+output "kubernetes_argocd_url" {
+  description = "ArgoCD web interface URL"
+  value       = "http://${aws_instance.kubernetes[0].public_ip}:30080"
+}
+
+output "kubernetes_argocd_ssh_access" {
+  description = "SSH command to access ArgoCD information"
+  value       = "ssh -i ~/.ssh/oci_ed25519 ec2-user@${aws_instance.kubernetes[0].public_ip} './argocd-access.sh'"
+}
+
+# Monitoring Outputs
+output "monitoring_instance_id" {
+  description = "ID of the monitoring EC2 instance"
+  value       = aws_instance.monitoring[0].id
+}
+
+output "monitoring_public_ip" {
+  description = "Public IP of the monitoring instance"
+  value       = aws_instance.monitoring[0].public_ip
+}
+
+output "monitoring_urls" {
+  description = "URLs for monitoring services"
+  value = {
+    prometheus         = "http://${aws_instance.monitoring[0].public_ip}:9090"
+    grafana           = "http://${aws_instance.monitoring[0].public_ip}:3000 (admin/admin123)"
+    kibana            = "http://${aws_instance.monitoring[0].public_ip}:5601"
+    jaeger            = "http://${aws_instance.monitoring[0].public_ip}:16686"
+    pushgateway       = "http://${aws_instance.monitoring[0].public_ip}:9091"
+    cloudwatch_exporter = "http://${aws_instance.monitoring[0].public_ip}:9106"
+  }
+}
+
+output "monitoring_ssh_command" {
+  description = "SSH command to connect to monitoring instance"
+  value       = "ssh ec2-user@${aws_instance.monitoring[0].public_ip}"
+}
+
+# Secrets Manager Outputs
+output "secrets_manager_arns" {
+  description = "ARNs of the secrets in AWS Secrets Manager"
+  value = {
+    mysql_credentials = aws_secretsmanager_secret.mysql_credentials[0].arn
+    redis_credentials = aws_secretsmanager_secret.redis_credentials[0].arn
+    grafana_credentials = aws_secretsmanager_secret.grafana_credentials[0].arn
+    argocd_credentials = aws_secretsmanager_secret.argocd_credentials[0].arn
+    app_secrets = aws_secretsmanager_secret.app_secrets[0].arn
+  }
+}
+
+output "secrets_manager_names" {
+  description = "Names of the secrets in AWS Secrets Manager"
+  value = {
+    mysql_credentials = aws_secretsmanager_secret.mysql_credentials[0].name
+    redis_credentials = aws_secretsmanager_secret.redis_credentials[0].name
+    grafana_credentials = aws_secretsmanager_secret.grafana_credentials[0].name
+    argocd_credentials = aws_secretsmanager_secret.argocd_credentials[0].name
+    app_secrets = aws_secretsmanager_secret.app_secrets[0].name
+  }
+}
+
+output "secrets_retrieval_commands" {
+  description = "AWS CLI commands to retrieve secrets"
+  value = {
+    mysql = "aws secretsmanager get-secret-value --secret-id ${aws_secretsmanager_secret.mysql_credentials[0].name} --query SecretString --output text | jq ."
+    redis = "aws secretsmanager get-secret-value --secret-id ${aws_secretsmanager_secret.redis_credentials[0].name} --query SecretString --output text | jq ."
+    grafana = "aws secretsmanager get-secret-value --secret-id ${aws_secretsmanager_secret.grafana_credentials[0].name} --query SecretString --output text | jq ."
+    argocd = "aws secretsmanager get-secret-value --secret-id ${aws_secretsmanager_secret.argocd_credentials[0].name} --query SecretString --output text | jq ."
+    app_secrets = "aws secretsmanager get-secret-value --secret-id ${aws_secretsmanager_secret.app_secrets[0].name} --query SecretString --output text | jq ."
+  }
 }

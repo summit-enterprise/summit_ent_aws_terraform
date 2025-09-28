@@ -8,20 +8,20 @@ resource "aws_vpc" "main" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  tags = {
+  tags = merge(var.tags, {
     Name        = "${var.environment}-vpc"
     Environment = var.environment
-  }
+  })
 }
 
 # Internet Gateway
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
-  tags = {
+  tags = merge(var.tags, {
     Name        = "${var.environment}-igw"
     Environment = var.environment
-  }
+  })
 }
 
 # Public Subnets
@@ -33,11 +33,11 @@ resource "aws_subnet" "public" {
   availability_zone       = var.availability_zones[count.index]
   map_public_ip_on_launch = true
 
-  tags = {
+  tags = merge(var.tags, {
     Name        = "${var.environment}-public-subnet-${count.index + 1}"
     Environment = var.environment
     Type        = "Public"
-  }
+  })
 }
 
 # Private Subnets
@@ -48,11 +48,11 @@ resource "aws_subnet" "private" {
   cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = var.availability_zones[count.index]
 
-  tags = {
+  tags = merge(var.tags, {
     Name        = "${var.environment}-private-subnet-${count.index + 1}"
     Environment = var.environment
     Type        = "Private"
-  }
+  })
 }
 
 # Route Table for Public Subnets
@@ -64,20 +64,20 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.main.id
   }
 
-  tags = {
+  tags = merge(var.tags, {
     Name        = "${var.environment}-public-rt"
     Environment = var.environment
-  }
+  })
 }
 
 # Route Table for Private Subnets
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
-  tags = {
+  tags = merge(var.tags, {
     Name        = "${var.environment}-private-rt"
     Environment = var.environment
-  }
+  })
 }
 
 # Associate Public Subnets with Public Route Table

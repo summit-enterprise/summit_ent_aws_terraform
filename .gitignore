@@ -29,3 +29,50 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.env
+secrets/
+credentials/
+
+# SSH keys and certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# AWS credentials
+.aws/
+aws-credentials
+
+# Terraform Cloud tokens
+.terraformrc
+terraform.rc
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/

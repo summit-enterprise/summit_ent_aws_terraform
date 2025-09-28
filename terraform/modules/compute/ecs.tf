@@ -55,14 +55,15 @@ resource "aws_ecs_task_definition" "data_processing_task" {
         }
       ]
       
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.ecs_logs.name
-          "awslogs-region"        = var.AWS_DEFAULT_REGION
-          "awslogs-stream-prefix" = "ecs"
-        }
-      }
+          # CloudWatch logging disabled - uncomment to enable
+          # logConfiguration = {
+          #   logDriver = "awslogs"
+          #   options = {
+          #     "awslogs-group"         = aws_cloudwatch_log_group.ecs_logs.name
+          #     "awslogs-region"        = var.AWS_DEFAULT_REGION
+          #     "awslogs-stream-prefix" = "ecs"
+          #   }
+          # }
     }
   ])
 
@@ -98,14 +99,15 @@ resource "aws_ecs_task_definition" "spark_job_task" {
         }
       ]
       
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.ecs_logs.name
-          "awslogs-region"        = var.AWS_DEFAULT_REGION
-          "awslogs-stream-prefix" = "ecs"
-        }
-      }
+          # CloudWatch logging disabled - uncomment to enable
+          # logConfiguration = {
+          #   logDriver = "awslogs"
+          #   options = {
+          #     "awslogs-group"         = aws_cloudwatch_log_group.ecs_logs.name
+          #     "awslogs-region"        = var.AWS_DEFAULT_REGION
+          #     "awslogs-stream-prefix" = "ecs"
+          #   }
+          # }
     }
   ])
 
@@ -139,16 +141,17 @@ resource "aws_ecs_service" "data_processing_service" {
   }
 }
 
-# CloudWatch Log Group for ECS
-resource "aws_cloudwatch_log_group" "ecs_logs" {
-  name              = "/ecs/${var.environment}-data-processing"
-  retention_in_days = 14
+# CloudWatch Log Group for ECS - DISABLED
+# Uncomment the block below to enable CloudWatch logging
+# resource "aws_cloudwatch_log_group" "ecs_logs" {
+#   name              = "/ecs/${var.environment}-data-processing"
+#   retention_in_days = 14
 
-  tags = {
-    Name        = "${var.environment}-ecs-logs"
-    Environment = var.environment
-  }
-}
+#   tags = {
+#     Name        = "${var.environment}-ecs-logs"
+#     Environment = var.environment
+#   }
+# }
 
 # Application Load Balancer for ECS (optional)
 resource "aws_lb" "data_processing_alb" {

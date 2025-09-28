@@ -5,7 +5,7 @@
 # Security Group for Web Servers
 resource "aws_security_group" "web" {
   name_prefix = "${var.environment}-web-"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = var.vpc_id
 
   ingress {
     from_port   = 80
@@ -37,7 +37,7 @@ resource "aws_security_group" "web" {
 # Security Group for Database
 resource "aws_security_group" "database" {
   name_prefix = "${var.environment}-db-"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = var.vpc_id
 
   # MySQL/MariaDB
   ingress {
@@ -87,7 +87,7 @@ resource "aws_security_group" "database" {
 # Security Group for Application Servers
 resource "aws_security_group" "app" {
   name_prefix = "${var.environment}-app-"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = var.vpc_id
 
   # SSH access from bastion or specific IPs
   ingress {
@@ -128,7 +128,7 @@ resource "aws_security_group" "app" {
 # Security Group for Bastion Host
 resource "aws_security_group" "bastion" {
   name_prefix = "${var.environment}-bastion-"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = var.vpc_id
 
   # SSH access from anywhere (restrict to your IP in production)
   ingress {
