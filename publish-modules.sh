@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-GITHUB_USERNAME="yourusername"  # Replace with your GitHub username
+GITHUB_USERNAME="summit-enterprise"  # Replace with your GitHub username
 MODULES_DIR="terraform/modules"
 GITHUB_ORG=""  # Leave empty for personal account, or set to your organization
 
