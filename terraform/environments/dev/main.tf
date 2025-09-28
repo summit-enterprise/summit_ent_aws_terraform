@@ -52,6 +52,8 @@ module "security" {
 
   environment = var.environment
   vpc_id      = module.networking.vpc_id
+  public_subnet_ids = module.networking.public_subnet_ids
+  private_subnet_ids = module.networking.private_subnet_ids
   tags        = local.common_tags
 }
 
@@ -62,7 +64,7 @@ module "storage" {
   source = "../../modules/storage"
 
   environment = var.environment
-  vpc_id      = module.networking.vpc_id
+  glue_service_role_arn = module.security.iam_role_arns.glue_service_role
   tags        = local.common_tags
 }
 
@@ -79,6 +81,9 @@ module "compute" {
   security_group_ids   = module.security.security_group_ids
   ecr_repository_urls  = module.storage.ecr_repository_urls
   data_lake_bucket_name = module.storage.data_lake_bucket_name
+  ecs_task_role_arn    = module.security.iam_role_arns.ecs_task_role
+  ecs_task_execution_role_arn = module.security.iam_role_arns.ecs_task_execution_role
+  kubernetes_security_group_id = module.security.security_group_ids.kubernetes
   tags                 = local.common_tags
 }
 
@@ -91,6 +96,7 @@ module "monitoring" {
   environment        = var.environment
   vpc_id            = module.networking.vpc_id
   public_subnet_ids = module.networking.public_subnet_ids
+  monitoring_security_group_id = module.security.security_group_ids.monitoring
   tags              = local.common_tags
 }
 
