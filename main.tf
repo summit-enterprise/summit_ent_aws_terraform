@@ -463,7 +463,7 @@ data "aws_ami" "amazon_linux" {
 # ========================================
 
 module "storage" {
-  source = "../terraform-aws-storage"
+  source = "github.com/summit-enterprise/terraform-aws-storage"
 
   environment = var.environment
   vpc_id      = aws_vpc.main.id
