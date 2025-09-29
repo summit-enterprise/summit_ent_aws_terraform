@@ -166,3 +166,4 @@ chmod +x /home/ec2-user/k8s-access.sh
 
 echo "Setup complete! Kubernetes and ArgoCD are now running."
 echo "Run /home/ec2-user/status.sh to check status"
+

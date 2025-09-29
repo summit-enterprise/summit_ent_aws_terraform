@@ -40,7 +40,7 @@ This directory contains comprehensive documentation for your AWS data engineerin
 - **AWS Glue**: Serverless ETL with data catalog
 - **ECR**: Container registry for Docker images
 - **ECS**: Serverless container orchestration with Fargate Spot
-- **Kubernetes**: Minikube cluster with ArgoCD GitOps
+- **Kubernetes**: k3s cluster with ArgoCD GitOps
 - **Monitoring**: Prometheus, Grafana, ELK Stack, Jaeger
 - **Secrets Manager**: Secure credential storage
 
@@ -112,20 +112,27 @@ module "networking" {
 # Get service URLs
 terraform output
 
-# Access monitoring
+# Access monitoring (Docker Compose on EC2-1)
 # Prometheus: http://<monitoring-ip>:9090
-# Grafana: http://<monitoring-ip>:3000
+# Grafana: http://<monitoring-ip>:3000 (admin/admin123)
 # Kibana: http://<monitoring-ip>:5601
 
-# Access Kubernetes
-ssh -i ~/.ssh/oci_ed25519 ec2-user@<kubernetes-ip>
+# Access Kubernetes (k3s on EC2-2)
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<kubernetes-ip>
+
+# Access ArgoCD (requires SSH tunnel)
+# 1. SSH to k3s instance
+# 2. kubectl port-forward svc/argocd-server -n argocd 8080:443
+# 3. SSH tunnel: ssh -L 8080:localhost:8080 ec2-user@<k3s-ip>
+# 4. Access: https://localhost:8080
 ```
 
 ### **4. Start Building**
 - Upload data to S3 data lake
 - Run Glue ETL jobs
 - Deploy applications to ECS
-- Use ArgoCD for Kubernetes deployments
+- Use ArgoCD for Kubernetes deployments (k3s)
+- Deploy Helm charts via ArgoCD
 
 ---
 
@@ -314,8 +321,9 @@ terraform/
 1. **Set Up Development**: Local development environment
 2. **Build Applications**: Containerized applications
 3. **Deploy to ECS**: Serverless container deployment
-4. **Use Kubernetes**: Minikube for learning
+4. **Use Kubernetes**: k3s for learning and development
 5. **Implement GitOps**: ArgoCD for deployments
+6. **Deploy Helm Charts**: Package and deploy applications
 
 ### **Production Readiness**
 1. **Security Hardening**: Additional security measures

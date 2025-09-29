@@ -249,11 +249,11 @@ terraform output kubernetes_public_ip
 terraform output monitoring_public_ip
 
 # Test SSH access (if key pair is configured)
-ssh -i ~/.ssh/oci_ed25519 ec2-user@<kubernetes-ip>
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<kubernetes-ip>
 
 # Test web access
 curl http://<monitoring-ip>:9090  # Prometheus
-curl http://<monitoring-ip>:3000  # Grafana
+curl http://<monitoring-ip>:3000  # Grafana (admin/admin123)
 ```
 
 ---
@@ -406,11 +406,11 @@ docker exec -it grafana grafana-cli admin reset-admin-password <new-password>
 terraform output kubernetes_ssh_command
 terraform output kubernetes_argocd_url
 
-# SSH to Kubernetes instance
-ssh -i ~/.ssh/oci_ed25519 ec2-user@<kubernetes-ip>
+# SSH to k3s instance
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<kubernetes-ip>
 
-# Check Minikube status
-minikube status
+# Check k3s status
+sudo systemctl status k3s
 
 # Get cluster info
 kubectl cluster-info
@@ -418,24 +418,32 @@ kubectl cluster-info
 
 ### **Step 2: Access ArgoCD**
 ```bash
-# Get ArgoCD credentials
-aws secretsmanager get-secret-value \
-  --secret-id dev-argocd-credentials \
-  --query SecretString --output text | jq .
+# SSH to k3s instance
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<kubernetes-ip>
+
+# Port forward ArgoCD service
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+# In another terminal, create SSH tunnel
+ssh -i ~/.ssh/terraform-key.pem -L 8080:localhost:8080 ec2-user@<kubernetes-ip>
 
 # Access ArgoCD web UI
-open http://<kubernetes-ip>:30080
+open https://localhost:8080
 
-# Login with credentials from secrets manager
+# Get admin password
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
 
 ### **Step 3: Deploy Applications with ArgoCD**
 ```bash
-# SSH to Kubernetes instance
-ssh -i ~/.ssh/oci_ed25519 ec2-user@<kubernetes-ip>
+# SSH to k3s instance
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<kubernetes-ip>
 
 # Port forward ArgoCD server
 kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+# In another terminal, create SSH tunnel
+ssh -i ~/.ssh/terraform-key.pem -L 8080:localhost:8080 ec2-user@<kubernetes-ip>
 
 # Login to ArgoCD CLI
 argocd login localhost:8080 --username admin --password <password>

@@ -459,6 +459,42 @@ data "aws_ami" "amazon_linux" {
 }
 
 # ========================================
+# STORAGE MODULE (INCLUDES ATHENA)
+# ========================================
+
+module "storage" {
+  source = "../terraform-aws-storage"
+
+  environment = var.environment
+  vpc_id      = aws_vpc.main.id
+  tags        = local.common_tags
+
+  # Athena configuration
+  data_lake_bucket_name           = aws_s3_bucket.data_lake.bucket
+  athena_results_bucket          = null  # Will create new bucket
+  create_athena_results_bucket   = true
+  athena_engine_version          = "Athena engine version 3"
+  enable_athena_query_logging    = true
+  athena_log_group_name          = "/aws/athena/${var.environment}-data-warehouse"
+  athena_log_retention_days      = 30
+  create_athena_sample_queries   = true
+  athena_sample_queries = {
+    "list_tables" = {
+      description = "List all tables in the database"
+      query       = "SHOW TABLES;"
+    }
+    "sample_data_query" = {
+      description = "Sample query to test data access"
+      query       = "SELECT * FROM information_schema.tables LIMIT 10;"
+    }
+    "data_lake_exploration" = {
+      description = "Explore data lake structure"
+      query       = "SELECT * FROM information_schema.tables WHERE table_schema = '${var.environment}_data_warehouse' LIMIT 20;"
+    }
+  }
+}
+
+# ========================================
 # OUTPUTS
 # ========================================
 
@@ -533,4 +569,35 @@ output "kubernetes_info" {
     argocd_url = "http://${aws_instance.kubernetes.public_ip}:30080"
     minikube_dashboard = "minikube dashboard --url (run on the instance)"
   }
+}
+
+output "athena_info" {
+  description = "Athena data warehouse information"
+  value = {
+    workgroup_name = module.storage.athena_workgroup_name
+    database_name = module.storage.athena_database_name
+    results_bucket = module.storage.athena_results_bucket_name
+    console_url = module.storage.athena_console_url
+    query_commands = module.storage.athena_query_commands
+  }
+}
+
+output "athena_workgroup_name" {
+  description = "Name of the Athena workgroup"
+  value       = module.storage.athena_workgroup_name
+}
+
+output "athena_database_name" {
+  description = "Name of the Athena database"
+  value       = module.storage.athena_database_name
+}
+
+output "athena_results_bucket" {
+  description = "S3 bucket for Athena query results"
+  value       = module.storage.athena_results_bucket_name
+}
+
+output "athena_console_url" {
+  description = "URL to access Athena console"
+  value       = module.storage.athena_console_url
 }

@@ -1,103 +1,129 @@
-# 🚀 AWS Infrastructure Access Guide
+# AWS Infrastructure Access Guide
+
+## 🚀 **Complete Access Guide for Deployed Infrastructure**
+
+This guide provides all the commands, URLs, and access methods for your deployed AWS infrastructure with k3s and monitoring stack.
+
+---
 
 ## 📋 **Quick Reference**
 
-### **Instance IPs**
-- **Monitoring Instance:** `3.145.125.199`
-- **Kubernetes Instance:** `18.118.197.25`
-
-### **SSH Key Location**
-- **Key File:** `~/.ssh/terraform-key.pem`
-- **Permissions:** `chmod 600 ~/.ssh/terraform-key.pem`
-
----
-
-## 🖥️ **SSH Access Commands**
-
-### **Connect to Monitoring Instance**
-```bash
-ssh -i ~/.ssh/terraform-key.pem ec2-user@3.145.125.199
-```
-
-### **Connect to Kubernetes Instance**
-```bash
-ssh -i ~/.ssh/terraform-key.pem ec2-user@18.118.197.25
-```
+### **Infrastructure Overview**
+- **EC2-1 (Monitoring)**: Docker Compose stack (Prometheus, Grafana, ELK, Jaeger)
+- **EC2-2 (k3s)**: Kubernetes cluster with ArgoCD
+- **VPC**: Multi-AZ network with public/private subnets
+- **S3**: Data lake with versioning and encryption
+- **ECR**: Container registries for images
+- **ECS**: Serverless container orchestration (Fargate Spot)
 
 ---
 
-## 🌐 **Web Services Access**
+## 🔑 **SSH Access Commands**
 
-### **Monitoring Services (IP: 3.145.125.199)**
-- **Prometheus:** http://3.145.125.199:9090
-- **Grafana:** http://3.145.125.199:3000 (admin/admin123)
-- **Kibana:** http://3.145.125.199:5601
-- **Jaeger:** http://3.145.125.199:16686
-
-### **Kubernetes Services (IP: 18.118.197.25)**
-- **ArgoCD:** http://18.118.197.25:30080
-- **Minikube Dashboard:** Run `minikube dashboard --url` on the instance
-
----
-
-## 🐳 **Kubernetes & Minikube Commands**
-
-### **SSH into Kubernetes Instance First**
+### **Get Instance Information**
 ```bash
-ssh -i ~/.ssh/terraform-key.pem ec2-user@18.118.197.25
+# Get all outputs
+terraform output
+
+# Get specific IPs
+terraform output monitoring_public_ip
+terraform output kubernetes_public_ip
+
+# Get SSH commands
+terraform output monitoring_ssh_command
+terraform output kubernetes_ssh_command
 ```
 
-### **Minikube Management**
+### **SSH to Monitoring Instance (EC2-1)**
 ```bash
-# Check Minikube status
-minikube status
+# SSH command
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<MONITORING_IP>
 
-# Start Minikube (if needed)
-minikube start --driver=docker --memory=1800
+# Check monitoring stack status
+docker-compose -f /opt/monitoring/docker-compose.yml ps
 
-# Stop Minikube
-minikube stop
-
-# Delete Minikube cluster
-minikube delete
-
-# Get Minikube dashboard URL
-minikube dashboard --url
-
-# Check cluster info
-kubectl cluster-info
+# View logs
+docker-compose -f /opt/monitoring/docker-compose.yml logs
 ```
 
-### **Kubernetes Cluster Commands**
+### **SSH to Kubernetes Instance (EC2-2)**
 ```bash
-# Get all nodes
-kubectl get nodes
+# SSH command
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<K3S_IP>
 
-# Get all pods in all namespaces
-kubectl get pods -A
+# Check k3s status
+sudo systemctl status k3s
 
-# Get pods in specific namespace
+# Check ArgoCD pods
 kubectl get pods -n argocd
 
-# Get services
-kubectl get services -A
-
-# Get namespaces
-kubectl get namespaces
-```
-
----
-
-## 🚀 **ArgoCD Commands**
-
-### **Get ArgoCD Admin Password**
-```bash
+# Get ArgoCD admin password
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
 
-### **ArgoCD CLI Commands**
+---
+
+## 🌐 **Service URLs and Access**
+
+### **Monitoring Services (EC2-1)**
+| **Service** | **URL** | **Credentials** | **Purpose** |
+|-------------|---------|-----------------|-------------|
+| **Prometheus** | `http://<MONITORING_IP>:9090` | None | Metrics collection |
+| **Grafana** | `http://<MONITORING_IP>:3000` | admin / admin123 | Dashboards |
+| **Kibana** | `http://<MONITORING_IP>:5601` | None | Log analysis |
+| **Jaeger** | `http://<MONITORING_IP>:16686` | None | Distributed tracing |
+
+### **Kubernetes Services (EC2-2)**
+| **Service** | **URL** | **Access Method** | **Purpose** |
+|-------------|---------|-------------------|-------------|
+| **ArgoCD Web UI** | `https://localhost:8080` | SSH tunnel required | GitOps management |
+| **k3s Dashboard** | `kubectl proxy` | SSH required | Kubernetes management |
+
+---
+
+## 🔧 **ArgoCD Access (SSH Tunnel Method)**
+
+### **Step 1: SSH to k3s Instance**
 ```bash
-# Port forward ArgoCD server
+# SSH to k3s instance
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<K3S_IP>
+
+# Port forward ArgoCD service
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
+
+### **Step 2: Create SSH Tunnel (from your local machine)**
+```bash
+# In a new terminal on your local machine
+ssh -i ~/.ssh/terraform-key.pem -L 8080:localhost:8080 ec2-user@<K3S_IP>
+```
+
+### **Step 3: Access ArgoCD**
+- **URL**: `https://localhost:8080`
+- **Username**: `admin`
+- **Password**: Get it by running: `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d`
+
+---
+
+## 📦 **Kubernetes Commands**
+
+### **Basic k3s Commands**
+```bash
+# Check cluster status
+kubectl get nodes
+kubectl get pods --all-namespaces
+
+# Check k3s service
+sudo systemctl status k3s
+sudo systemctl restart k3s
+
+# View k3s logs
+sudo journalctl -u k3s -f
+```
+
+### **ArgoCD Commands**
+```bash
+# Port forward ArgoCD (run on k3s instance)
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 
 # Login to ArgoCD CLI
@@ -106,255 +132,391 @@ argocd login localhost:8080 --username admin --password <PASSWORD>
 # List applications
 argocd app list
 
-# Get ArgoCD server info
-argocd version
+# Create application
+argocd app create my-app \
+  --repo https://github.com/your-org/your-repo \
+  --path manifests \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace default
+
+# Sync application
+argocd app sync my-app
 ```
 
-### **ArgoCD Web Access**
-- **URL:** http://18.118.197.25:30080
-- **Username:** admin
-- **Password:** Get from the command above
-
----
-
-## 📦 **Helm Commands**
-
-### **Basic Helm Operations**
+### **Helm Commands**
 ```bash
 # List Helm repositories
 helm repo list
 
-# Add a repository
-helm repo add <name> <url>
-helm repo add argo https://argoproj.github.io/argo-helm
-
-# Update repositories
-helm repo update
-
-# List installed charts
-helm list -A
-
-# Install a chart
-helm install <name> <chart> --namespace <namespace>
-
-# Uninstall a chart
-helm uninstall <name> --namespace <namespace>
-```
-
-### **Example: Install Nginx**
-```bash
-# Add Bitnami repository
+# Add repository
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 
-# Install Nginx
-helm install nginx bitnami/nginx --namespace default
+# Install chart
+helm install my-app bitnami/nginx
 
-# Check status
-kubectl get pods
-kubectl get services
+# List releases
+helm list
+
+# Upgrade release
+helm upgrade my-app bitnami/nginx
 ```
 
 ---
 
-## 🗄️ **Storage & Data Lake**
+## 🐳 **Docker Commands**
 
-### **S3 Data Lake**
-- **Bucket Name:** `dev-data-lake-x56pxrmj`
-- **Region:** us-east-2
-
-### **ECR Repositories**
-- **Spark Apps:** `184499164265.dkr.ecr.us-east-2.amazonaws.com/dev-spark-apps`
-- **Data Jobs:** `184499164265.dkr.ecr.us-east-2.amazonaws.com/dev-data-jobs`
-
-### **AWS CLI Commands**
+### **Monitoring Stack (EC2-1)**
 ```bash
-# List S3 buckets
-aws s3 ls
-
-# Upload file to data lake
-aws s3 cp local-file.csv s3://dev-data-lake-x56pxrmj/raw/
-
-# List ECR repositories
-aws ecr describe-repositories
-
-# Login to ECR
-aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 184499164265.dkr.ecr.us-east-2.amazonaws.com
-```
-
----
-
-## 🔧 **Docker Commands**
-
-### **On Kubernetes Instance**
-```bash
-# Check Docker status
-sudo systemctl status docker
-
-# List running containers
+# Check container status
 docker ps
 
-# List all containers
-docker ps -a
+# View logs
+docker logs prometheus
+docker logs grafana
+docker logs elasticsearch
+docker logs kibana
+docker logs jaeger
 
-# Build and push to ECR
-docker build -t my-app .
-docker tag my-app:latest 184499164265.dkr.ecr.us-east-2.amazonaws.com/dev-spark-apps:latest
-docker push 184499164265.dkr.ecr.us-east-2.amazonaws.com/dev-spark-apps:latest
+# Restart services
+docker-compose -f /opt/monitoring/docker-compose.yml restart
+
+# Stop services
+docker-compose -f /opt/monitoring/docker-compose.yml down
+
+# Start services
+docker-compose -f /opt/monitoring/docker-compose.yml up -d
+```
+
+---
+
+## 🗄️ **S3 Data Lake Commands**
+
+### **S3 Operations**
+```bash
+# Get bucket name
+terraform output data_lake_bucket_name
+
+# List bucket contents
+aws s3 ls s3://<BUCKET_NAME>/
+
+# Upload file
+aws s3 cp local-file.txt s3://<BUCKET_NAME>/raw/
+
+# Download file
+aws s3 cp s3://<BUCKET_NAME>/raw/local-file.txt ./
+
+# Sync directory
+aws s3 sync ./local-dir/ s3://<BUCKET_NAME>/raw/
+```
+
+### **S3 Bucket Structure**
+```
+s3://<BUCKET_NAME>/
+├── raw/                    # Unprocessed data
+│   ├── logs/              # Access logs
+│   ├── events/            # Event data
+│   └── feeds/             # External data feeds
+├── processed/             # Cleaned and transformed data
+│   ├── daily/             # Daily aggregations
+│   ├── hourly/            # Hourly aggregations
+│   └── real-time/         # Real-time processed data
+├── curated/               # Business-ready data
+│   ├── analytics/         # Analytics datasets
+│   ├── reporting/         # Reporting data
+│   └── ml/                # Machine learning datasets
+└── logs/                  # Audit and access logs
+```
+
+---
+
+## 🐳 **ECR Container Registry Commands**
+
+### **ECR Operations**
+```bash
+# Get ECR repository URLs
+terraform output ecr_repository_urls
+
+# Login to ECR
+aws ecr get-login-password --region us-east-2 | \
+docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.us-east-2.amazonaws.com
+
+# Build and tag image
+docker build -t my-app:latest .
+docker tag my-app:latest <ECR_URL>:latest
+
+# Push to ECR
+docker push <ECR_URL>:latest
+
+# Pull from ECR
+docker pull <ECR_URL>:latest
+```
+
+---
+
+## 🚀 **ECS Commands**
+
+### **ECS Operations**
+```bash
+# List clusters
+aws ecs list-clusters
+
+# List services
+aws ecs list-services --cluster <CLUSTER_NAME>
+
+# Update service
+aws ecs update-service \
+  --cluster <CLUSTER_NAME> \
+  --service <SERVICE_NAME> \
+  --desired-count 1
+
+# Stop service
+aws ecs update-service \
+  --cluster <CLUSTER_NAME> \
+  --service <SERVICE_NAME> \
+  --desired-count 0
+```
+
+---
+
+## 🔐 **Secrets Manager Commands**
+
+### **Retrieve Secrets**
+```bash
+# Get secret ARNs
+terraform output secrets_manager_arns
+
+# Retrieve specific secret
+aws secretsmanager get-secret-value \
+  --secret-id <SECRET_NAME> \
+  --query SecretString --output text | jq .
+
+# Get all secrets
+terraform output secrets_retrieval_commands
 ```
 
 ---
 
 ## 📊 **Monitoring Commands**
 
-### **On Monitoring Instance**
+### **Prometheus Queries**
 ```bash
-# Check Docker Compose services
-cd /opt/monitoring
-docker-compose ps
+# Access Prometheus
+curl http://<MONITORING_IP>:9090/api/v1/query?query=up
 
-# View logs
-docker-compose logs prometheus
-docker-compose logs grafana
-docker-compose logs elasticsearch
-docker-compose logs kibana
-docker-compose logs jaeger
+# Check targets
+curl http://<MONITORING_IP>:9090/api/v1/targets
+```
 
-# Restart services
-docker-compose restart
+### **Grafana Operations**
+```bash
+# Access Grafana
+curl -u admin:admin123 http://<MONITORING_IP>:3000/api/health
 
-# Stop all services
-docker-compose down
-
-# Start all services
-docker-compose up -d
+# Import dashboard (via API)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -u admin:admin123 \
+  -d @dashboard.json \
+  http://<MONITORING_IP>:3000/api/dashboards/db
 ```
 
 ---
 
-## 🛠️ **Troubleshooting Commands**
+## 🔧 **Troubleshooting Commands**
 
-### **Check Instance Status**
+### **Network Troubleshooting**
 ```bash
-# Check if instances are running
-aws ec2 describe-instances --query 'Reservations[].Instances[].[InstanceId,State.Name,PublicIpAddress,Tags[?Key==`Name`].Value|[0]]' --output table
+# Test connectivity
+ping <INSTANCE_IP>
+telnet <INSTANCE_IP> 22
+curl http://<INSTANCE_IP>:9090
 
 # Check security groups
-aws ec2 describe-security-groups --query 'SecurityGroups[].{Name:GroupName,Id:GroupId,Ingress:IpPermissions[].FromPort}' --output table
+aws ec2 describe-security-groups --group-ids <SG_ID>
+
+# Check route tables
+aws ec2 describe-route-tables --filters "Name=vpc-id,Values=<VPC_ID>"
 ```
 
 ### **Kubernetes Troubleshooting**
 ```bash
 # Check pod logs
-kubectl logs <pod-name> -n <namespace>
+kubectl logs <POD_NAME> -n <NAMESPACE>
 
 # Describe pod
-kubectl describe pod <pod-name> -n <namespace>
+kubectl describe pod <POD_NAME> -n <NAMESPACE>
 
 # Check events
 kubectl get events --sort-by=.metadata.creationTimestamp
 
-# Check resource usage
+# Check node resources
 kubectl top nodes
 kubectl top pods
 ```
 
-### **Minikube Troubleshooting**
+### **Docker Troubleshooting**
 ```bash
-# Check Minikube logs
-minikube logs
+# Check container logs
+docker logs <CONTAINER_NAME>
 
-# Reset Minikube
-minikube delete
-minikube start --driver=docker --memory=1800
+# Inspect container
+docker inspect <CONTAINER_NAME>
 
-# Check Minikube addons
-minikube addons list
+# Check resource usage
+docker stats
+
+# Clean up
+docker system prune -a
 ```
 
 ---
 
 ## 🚀 **Quick Start Workflows**
 
-### **1. Deploy a Simple App to Kubernetes**
+### **1. Deploy Infrastructure**
 ```bash
-# SSH to Kubernetes instance
-ssh -i ~/.ssh/terraform-key.pem ec2-user@18.118.197.25
+# Initialize Terraform
+terraform init
 
-# Create a simple deployment
-kubectl create deployment nginx --image=nginx
-kubectl expose deployment nginx --port=80 --type=NodePort
+# Plan deployment
+terraform plan
 
-# Get the service URL
-kubectl get services
-minikube service nginx --url
+# Apply configuration
+terraform apply
 ```
 
-### **2. Set Up ArgoCD Application**
+### **2. Access All Services**
 ```bash
-# SSH to Kubernetes instance
-ssh -i ~/.ssh/terraform-key.pem ec2-user@18.118.197.25
+# Get all outputs
+terraform output
 
-# Get ArgoCD password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+# SSH to monitoring
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<MONITORING_IP>
+
+# SSH to k3s
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<K3S_IP>
+```
+
+### **3. Deploy Application with ArgoCD**
+```bash
+# SSH to k3s instance
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<K3S_IP>
 
 # Port forward ArgoCD
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 
-# Login to ArgoCD CLI
-argocd login localhost:8080 --username admin --password <PASSWORD>
+# In another terminal, create SSH tunnel
+ssh -i ~/.ssh/terraform-key.pem -L 8080:localhost:8080 ec2-user@<K3S_IP>
+
+# Access ArgoCD at https://localhost:8080
 ```
 
-### **3. Upload Data to S3**
+### **4. Monitor Applications**
 ```bash
-# Upload a file to the data lake
-aws s3 cp my-data.csv s3://dev-data-lake-x56pxrmj/raw/
+# Access Grafana
+open http://<MONITORING_IP>:3000
 
-# List files in data lake
-aws s3 ls s3://dev-data-lake-x56pxrmj/raw/
+# Access Prometheus
+open http://<MONITORING_IP>:9090
+
+# Access Kibana
+open http://<MONITORING_IP>:5601
 ```
 
 ---
 
-## 📝 **Useful Aliases**
+## 📚 **Useful Scripts**
 
-Add these to your `~/.bashrc` on the Kubernetes instance:
-
+### **Status Check Script**
 ```bash
-# Kubernetes aliases
-alias k='kubectl'
-alias m='minikube'
-alias a='argocd'
+#!/bin/bash
+echo "=== Infrastructure Status ==="
+echo "Monitoring IP: $(terraform output -raw monitoring_public_ip)"
+echo "K3s IP: $(terraform output -raw kubernetes_public_ip)"
+echo ""
+echo "=== Monitoring Services ==="
+curl -s http://$(terraform output -raw monitoring_public_ip):9090/api/v1/query?query=up | jq .
+echo ""
+echo "=== K3s Status ==="
+ssh -i ~/.ssh/terraform-key.pem ec2-user@$(terraform output -raw kubernetes_public_ip) "sudo systemctl status k3s --no-pager"
+```
 
-# Docker aliases
-alias d='docker'
-alias dc='docker-compose'
-
-# Quick access
-alias pods='kubectl get pods -A'
-alias services='kubectl get services -A'
-alias nodes='kubectl get nodes'
+### **ArgoCD Access Script**
+```bash
+#!/bin/bash
+K3S_IP=$(terraform output -raw kubernetes_public_ip)
+echo "=== ArgoCD Access ==="
+echo "1. SSH to k3s: ssh -i ~/.ssh/terraform-key.pem ec2-user@$K3S_IP"
+echo "2. Port forward: kubectl port-forward svc/argocd-server -n argocd 8080:443"
+echo "3. SSH tunnel: ssh -i ~/.ssh/terraform-key.pem -L 8080:localhost:8080 ec2-user@$K3S_IP"
+echo "4. Access: https://localhost:8080"
+echo "5. Password: $(ssh -i ~/.ssh/terraform-key.pem ec2-user@$K3S_IP "kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d")"
 ```
 
 ---
 
-## 🔐 **Security Notes**
+## 🎯 **Next Steps**
 
-- **SSH Key:** Keep `terraform-key.pem` secure and never commit to version control
-- **ArgoCD Password:** Change the default password after first login
-- **Firewall:** Security groups are configured for necessary ports only
-- **Encryption:** S3 bucket and EBS volumes are encrypted
+### **Immediate Actions**
+1. **Access Services**: Use the URLs and commands above
+2. **Deploy Applications**: Use ArgoCD for GitOps deployments
+3. **Monitor Infrastructure**: Set up Grafana dashboards
+4. **Upload Data**: Start using the S3 data lake
+
+### **Development Workflow**
+1. **Build Applications**: Create containerized apps
+2. **Push to ECR**: Store images in container registry
+3. **Deploy to k3s**: Use ArgoCD for deployments
+4. **Monitor**: Use Prometheus and Grafana
+
+### **Production Readiness**
+1. **Security**: Review security groups and IAM roles
+2. **Backup**: Set up S3 lifecycle policies
+3. **Monitoring**: Configure alerts and dashboards
+4. **Scaling**: Set up auto-scaling policies
 
 ---
 
-## 📞 **Support & Resources**
+## 🆘 **Support and Resources**
 
-- **Terraform Cloud:** https://app.terraform.io/app/summit-enterprise/summit_ent_aws_terraform
-- **AWS Console:** https://console.aws.amazon.com/
-- **ArgoCD Docs:** https://argo-cd.readthedocs.io/
-- **Kubernetes Docs:** https://kubernetes.io/docs/
-- **Helm Docs:** https://helm.sh/docs/
+### **Documentation**
+- **Infrastructure Overview**: `documentation/infrastructure-overview.md`
+- **Service Details**: `documentation/service-details.md`
+- **Kubernetes Guide**: `documentation/kubernetes-argocd-guide.md`
+- **Deployment Guide**: `documentation/deployment-guide.md`
+
+### **Useful Commands**
+```bash
+# Get all outputs
+terraform output
+
+# Show current state
+terraform show
+
+# List all resources
+terraform state list
+
+# Refresh state
+terraform refresh
+```
+
+### **Troubleshooting Resources**
+- **AWS Documentation**: https://docs.aws.amazon.com/
+- **Terraform Documentation**: https://terraform.io/docs/
+- **Kubernetes Documentation**: https://kubernetes.io/docs/
+- **ArgoCD Documentation**: https://argo-cd.readthedocs.io/
 
 ---
 
-**🎉 Your AWS infrastructure is ready for development and experimentation!**
+**Your AWS infrastructure is now fully accessible and ready for development!** 🎉
+
+**Key Benefits:**
+- ✅ **Complete Access**: All services accessible with clear commands
+- ✅ **Two-EC2 Architecture**: Monitoring and k3s on separate instances
+- ✅ **SSH Tunneling**: Secure access to ArgoCD
+- ✅ **Comprehensive Monitoring**: Prometheus, Grafana, ELK, Jaeger
+- ✅ **GitOps Ready**: ArgoCD for declarative deployments
+- ✅ **Production Ready**: Security, monitoring, and cost optimization
+
+**Start building your applications today!** 🚀

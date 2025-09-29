@@ -1,4 +1,4 @@
-# Kubernetes + ArgoCD Setup Guide
+# Kubernetes (k3s) + ArgoCD Setup Guide
 
 ## 🔑 **SSH Access to Kubernetes EC2**
 
@@ -14,50 +14,64 @@ terraform output kubernetes_ssh_command
 
 ### **3. SSH into the Instance:**
 ```bash
-ssh -i ~/.ssh/oci_ed25519 ec2-user@<PUBLIC_IP>
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<PUBLIC_IP>
 ```
 
 ### **4. Verify Kubernetes is Running:**
 ```bash
-# Check Minikube status
-minikube status
+# Check k3s status
+sudo systemctl status k3s
 
 # Check kubectl access
 kubectl get nodes
 kubectl get pods --all-namespaces
+
+# Check ArgoCD pods
+kubectl get pods -n argocd
 ```
 
 ## 🚀 **ArgoCD Setup & Usage**
 
-### **1. Access ArgoCD Web Interface:**
-```bash
-# Get ArgoCD URL
-terraform output kubernetes_argocd_url
+### **1. Access ArgoCD Web Interface (SSH Tunnel Required):**
 
-# Or get all ArgoCD info
-terraform output kubernetes_argocd_ssh_access
+**Step 1: SSH to k3s instance and port-forward ArgoCD:**
+```bash
+# SSH to k3s instance
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<K3S_IP>
+
+# Port forward ArgoCD service
+kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
 
-**ArgoCD Web UI:** `http://<PUBLIC_IP>:30080`
+**Step 2: Create SSH tunnel from your local machine:**
+```bash
+# In a new terminal on your local machine
+ssh -i ~/.ssh/terraform-key.pem -L 8080:localhost:8080 ec2-user@<K3S_IP>
+```
+
+**Step 3: Access ArgoCD:**
+- **URL:** `https://localhost:8080`
 - **Username:** `admin`
-- **Password:** Get it by running the SSH command above
+- **Password:** Get it by running: `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d`
 
 ### **2. ArgoCD CLI Access:**
 
 #### **Method 1: Direct SSH Access**
 ```bash
-# SSH into the instance
-ssh -i ~/.ssh/oci_ed25519 ec2-user@<PUBLIC_IP>
+# SSH into the k3s instance
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<K3S_IP>
 
-# Use ArgoCD CLI directly
-argocd app list
-argocd app create --help
+# Port forward ArgoCD
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+# In another terminal, login to ArgoCD
+argocd login localhost:8080 --username admin --password <PASSWORD>
 ```
 
-#### **Method 2: Port Forward (from your local machine)**
+#### **Method 2: SSH Tunnel (from your local machine)**
 ```bash
 # SSH with port forwarding
-ssh -i ~/.ssh/oci_ed25519 -L 8080:localhost:8080 ec2-user@<PUBLIC_IP>
+ssh -i ~/.ssh/terraform-key.pem -L 8080:localhost:8080 ec2-user@<K3S_IP>
 
 # In another terminal, login to ArgoCD
 argocd login localhost:8080 --username admin --password <PASSWORD>
@@ -144,14 +158,14 @@ argocd app create redis \
 # Get all resources
 kubectl get all --all-namespaces
 
-# Get Minikube dashboard
-minikube dashboard
+# Check k3s status
+sudo systemctl status k3s
 
 # Get service URLs
-minikube service list
+kubectl get services --all-namespaces
 
-# Access a service
-minikube service <service-name>
+# Port forward a service
+kubectl port-forward svc/<service-name> -n <namespace> <local-port>:<service-port>
 ```
 
 ### **ArgoCD Commands:**
@@ -173,8 +187,8 @@ argocd app delete my-app
 
 | **Service** | **URL** | **Purpose** |
 |-------------|---------|-------------|
-| **ArgoCD Web UI** | `http://<PUBLIC_IP>:30080` | GitOps management |
-| **Minikube Dashboard** | `minikube dashboard` (via SSH) | Kubernetes management |
+| **ArgoCD Web UI** | `https://localhost:8080` (SSH tunnel) | GitOps management |
+| **k3s Dashboard** | `kubectl proxy` (via SSH) | Kubernetes management |
 | **Monitoring Stack** | `http://<MONITORING_IP>:3000` | Grafana dashboards |
 
 ## 🚀 **Quick Start Workflow**
@@ -196,11 +210,14 @@ terraform output kubernetes_argocd_url
 
 ### **3. SSH and Setup:**
 ```bash
-# SSH into Kubernetes instance
-ssh -i ~/.ssh/oci_ed25519 ec2-user@<PUBLIC_IP>
+# SSH into k3s instance
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<K3S_IP>
+
+# Check k3s status
+sudo systemctl status k3s
 
 # Check ArgoCD status
-./argocd-access.sh
+kubectl get pods -n argocd
 
 # Verify everything is running
 kubectl get pods --all-namespaces
@@ -262,14 +279,16 @@ chmod 600 ~/.ssh/oci_ed25519
 ssh -i ~/.ssh/oci_ed25519 -v ec2-user@<PUBLIC_IP>
 ```
 
-#### **Minikube Issues:**
+#### **k3s Issues:**
 ```bash
-# Restart Minikube
-minikube stop
-minikube start --driver=docker --memory=1536 --cpus=1
+# Restart k3s
+sudo systemctl restart k3s
 
 # Check status
-minikube status
+sudo systemctl status k3s
+
+# Check logs
+sudo journalctl -u k3s -f
 ```
 
 ---

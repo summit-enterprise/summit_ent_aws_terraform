@@ -749,10 +749,10 @@ resource "aws_ecs_service" "data_processing_service" {
 
 ---
 
-## ☸️ **8. Kubernetes (Minikube)**
+## ☸️ **8. Kubernetes (k3s)**
 
 ### **Purpose**
-Kubernetes provides container orchestration and management, with Minikube providing a local development environment.
+Kubernetes provides container orchestration and management, with k3s providing a lightweight, production-ready Kubernetes distribution.
 
 ### **Kubernetes Setup**
 
@@ -783,22 +783,24 @@ resource "aws_instance" "kubernetes" {
 - **Storage**: 20 GB GP3 encrypted
 - **Networking**: Public subnet, Kubernetes security group
 
-#### **Minikube Installation**
+#### **k3s Installation**
 ```bash
-# Install Minikube
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-chmod +x minikube-linux-amd64
-mv minikube-linux-amd64 /usr/local/bin/minikube
+# Install k3s
+curl -sfL https://get.k3s.io | sh -
 
-# Start Minikube with optimal resources for t3.small
-minikube start --driver=docker --memory=1536 --cpus=1
+# Start k3s service
+sudo systemctl start k3s
+sudo systemctl enable k3s
+
+# Configure kubectl
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 ```
 
 **Configuration**:
-- **Driver**: Docker
-- **Memory**: 1536 MB (optimized for t3.small)
-- **CPU**: 1 vCPU
-- **Storage**: Local Docker storage
+- **Distribution**: k3s (lightweight Kubernetes)
+- **Memory**: Optimized for t3.small instance
+- **CPU**: Uses available resources efficiently
+- **Storage**: Local storage with k3s
 
 #### **ArgoCD Integration**
 ```bash
@@ -806,23 +808,24 @@ minikube start --driver=docker --memory=1536 --cpus=1
 curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
 sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
 
-# Install ArgoCD in Minikube
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update
+# Install ArgoCD in k3s
 kubectl create namespace argocd
-helm install argocd argo/argo-cd --namespace argocd --set server.service.type=NodePort --set server.service.nodePortHttp=30080
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for ArgoCD to be ready
+kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
 ```
 
 **ArgoCD Configuration**:
 - **Namespace**: argocd
-- **Service Type**: NodePort (30080)
-- **Access**: Web UI and CLI
+- **Service Type**: ClusterIP with port-forwarding
+- **Access**: SSH tunnel + kubectl port-forward
 - **Purpose**: GitOps for Kubernetes deployments
 
 ### **Kubernetes Benefits**
-- **Portable**: Works on any cloud or on-premises
+- **Lightweight**: k3s is more efficient than Minikube
+- **Production-like**: Real Kubernetes distribution
 - **GitOps**: ArgoCD for declarative deployments
-- **Learning**: Great for understanding container orchestration
 - **Cost Effective**: Single EC2 instance for development
 - **Scalable**: Can be expanded to full EKS cluster
 

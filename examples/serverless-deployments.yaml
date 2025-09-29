@@ -1,0 +1,619 @@
+# ========================================
+# SERVERLESS DEPLOYMENT EXAMPLES
+# ========================================
+# This file contains example configurations for serverless deployments
+# Use these as templates for your own applications
+
+# ========================================
+# 1. LAMBDA FUNCTION (Container Image)
+# ========================================
+
+# Dockerfile for Lambda container
+# FROM public.ecr.aws/lambda/python:3.9
+# COPY lambda_function.py ${LAMBDA_TASK_ROOT}
+# COPY requirements.txt .
+# RUN pip install -r requirements.txt
+# CMD ["lambda_function.handler"]
+
+# Lambda function code (lambda_function.py)
+# import json
+# import boto3
+# import os
+# 
+# def handler(event, context):
+#     s3 = boto3.client('s3')
+#     bucket_name = os.environ['S3_BUCKET']
+#     
+#     # Process the event
+#     result = {
+#         'statusCode': 200,
+#         'body': json.dumps({
+#             'message': 'Hello from Lambda!',
+#             'bucket': bucket_name
+#         })
+#     }
+#     return result
+
+# ========================================
+# 2. FARGATE TASK DEFINITION
+# ========================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fargate-task-definition
+data:
+  task-definition.json: |
+    {
+      "family": "serverless-web-app",
+      "networkMode": "awsvpc",
+      "requiresCompatibilities": ["FARGATE"],
+      "cpu": "1024",
+      "memory": "2048",
+      "executionRoleArn": "arn:aws:iam::ACCOUNT:role/ecsTaskExecutionRole",
+      "taskRoleArn": "arn:aws:iam::ACCOUNT:role/ecsTaskRole",
+      "containerDefinitions": [
+        {
+          "name": "web-app",
+          "image": "ACCOUNT.dkr.ecr.region.amazonaws.com/repo:latest",
+          "portMappings": [
+            {
+              "containerPort": 8080,
+              "protocol": "tcp"
+            }
+          ],
+          "environment": [
+            {
+              "name": "ENVIRONMENT",
+              "value": "dev"
+            },
+            {
+              "name": "S3_BUCKET",
+              "value": "dev-data-lake-abc123"
+            }
+          ],
+          "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+              "awslogs-group": "/ecs/serverless-web-app",
+              "awslogs-region": "us-east-2",
+              "awslogs-stream-prefix": "ecs"
+            }
+          }
+        }
+      ]
+    }
+
+---
+# ========================================
+# 3. BATCH JOB DEFINITION
+# ========================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: batch-job-definition
+data:
+  job-definition.json: |
+    {
+      "jobDefinitionName": "etl-job",
+      "type": "container",
+      "platformCapabilities": ["FARGATE"],
+      "containerProperties": {
+        "image": "ACCOUNT.dkr.ecr.region.amazonaws.com/etl-job:latest",
+        "vcpus": 2,
+        "memory": 4096,
+        "environment": [
+          {
+            "name": "S3_BUCKET",
+            "value": "dev-data-lake-abc123"
+          },
+          {
+            "name": "ATHENA_DATABASE",
+            "value": "dev_data_warehouse"
+          }
+        ],
+        "jobRoleArn": "arn:aws:iam::ACCOUNT:role/batchJobRole",
+        "executionRoleArn": "arn:aws:iam::ACCOUNT:role/batchExecutionRole",
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/aws/batch/etl-job",
+            "awslogs-region": "us-east-2",
+            "awslogs-stream-prefix": "batch"
+          }
+        }
+      }
+    }
+
+---
+# ========================================
+# 4. APP RUNNER SERVICE
+# ========================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-runner-service
+data:
+  apprunner.yaml: |
+    version: 1.0
+    runtime: docker
+    build:
+      commands:
+        build:
+          - echo "Building the application"
+        post_build:
+          - echo "Build completed"
+    run:
+      runtime-version: latest
+      command: python app.py
+      network:
+        port: 8080
+        env: PORT
+      env:
+        - name: ENVIRONMENT
+          value: dev
+        - name: S3_BUCKET
+          value: dev-data-lake-abc123
+
+---
+# ========================================
+# 5. KUBERNETES DEPLOYMENT (for EKS Fargate)
+# ========================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: serverless-web-app
+  labels:
+    app: serverless-web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: serverless-web-app
+  template:
+    metadata:
+      labels:
+        app: serverless-web-app
+    spec:
+      containers:
+      - name: web-app
+        image: ACCOUNT.dkr.ecr.region.amazonaws.com/web-app:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ENVIRONMENT
+          value: "dev"
+        - name: S3_BUCKET
+          value: "dev-data-lake-abc123"
+        - name: ATHENA_DATABASE
+          value: "dev_data_warehouse"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: serverless-web-app-service
+spec:
+  selector:
+    app: serverless-web-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: LoadBalancer
+
+---
+# ========================================
+# 6. HELM CHART VALUES
+# ========================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: helm-values
+data:
+  values.yaml: |
+    # Serverless Web App Helm Chart Values
+    replicaCount: 2
+    
+    image:
+      repository: ACCOUNT.dkr.ecr.region.amazonaws.com/web-app
+      tag: latest
+      pullPolicy: IfNotPresent
+    
+    service:
+      type: LoadBalancer
+      port: 80
+      targetPort: 8080
+    
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        kubernetes.io/ingress.class: nginx
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: webapp.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: webapp-tls
+          hosts:
+            - webapp.example.com
+    
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+    
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
+    
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    
+    env:
+      - name: ENVIRONMENT
+        value: "dev"
+      - name: S3_BUCKET
+        value: "dev-data-lake-abc123"
+      - name: ATHENA_DATABASE
+        value: "dev_data_warehouse"
+
+---
+# ========================================
+# 7. ARGOCD APPLICATION
+# ========================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: serverless-web-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/your-repo
+    targetRevision: HEAD
+    path: charts/serverless-web-app
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+# ========================================
+# 8. DOCKER COMPOSE (for local development)
+# ========================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docker-compose
+data:
+  docker-compose.yml: |
+    version: '3.8'
+    services:
+      web-app:
+        build: .
+        ports:
+          - "8080:8080"
+        environment:
+          - ENVIRONMENT=dev
+          - S3_BUCKET=dev-data-lake-abc123
+          - ATHENA_DATABASE=dev_data_warehouse
+        volumes:
+          - ./logs:/app/logs
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 40s
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        volumes:
+          - redis_data:/data
+        healthcheck:
+          test: ["CMD", "redis-cli", "ping"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+      
+      postgres:
+        image: postgres:15-alpine
+        environment:
+          - POSTGRES_DB=webapp
+          - POSTGRES_USER=webapp
+          - POSTGRES_PASSWORD=password
+        ports:
+          - "5432:5432"
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+          test: ["CMD-SHELL", "pg_isready -U webapp"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+    
+    volumes:
+      redis_data:
+      postgres_data:
+
+---
+# ========================================
+# 9. TERRAFORM MODULE USAGE
+# ========================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: terraform-examples
+data:
+  lambda.tf: |
+    # Lambda function using container image
+    resource "aws_lambda_function" "serverless_processor" {
+      function_name = "${var.environment}-serverless-processor"
+      role          = aws_iam_role.lambda_role.arn
+      package_type  = "Image"
+      image_uri     = "${aws_ecr_repository.data_jobs.repository_url}:latest"
+      
+      timeout     = 900
+      memory_size = 2048
+      
+      environment {
+        variables = {
+          S3_BUCKET        = aws_s3_bucket.data_lake.bucket
+          ATHENA_DATABASE  = module.athena.database_name
+          ATHENA_WORKGROUP = module.athena.workgroup_name
+        }
+      }
+    }
+    
+    # S3 trigger for Lambda
+    resource "aws_s3_bucket_notification" "lambda_trigger" {
+      bucket = aws_s3_bucket.data_lake.id
+      
+      lambda_function {
+        lambda_function_arn = aws_lambda_function.serverless_processor.arn
+        events              = ["s3:ObjectCreated:*"]
+        filter_prefix       = "raw/"
+      }
+    }
+  
+  fargate.tf: |
+    # Fargate service
+    resource "aws_ecs_service" "serverless_web" {
+      name            = "${var.environment}-serverless-web"
+      cluster         = aws_ecs_cluster.main.id
+      task_definition = aws_ecs_task_definition.serverless_web.arn
+      desired_count   = 2
+      launch_type     = "FARGATE"
+      
+      network_configuration {
+        subnets          = aws_subnet.private[*].id
+        security_groups  = [aws_security_group.web.id]
+        assign_public_ip = false
+      }
+      
+      load_balancer {
+        target_group_arn = aws_lb_target_group.web.arn
+        container_name   = "web-app"
+        container_port   = 8080
+      }
+    }
+  
+  batch.tf: |
+    # Batch job definition
+    resource "aws_batch_job_definition" "etl_processor" {
+      name = "${var.environment}-etl-processor"
+      type = "container"
+      platform_capabilities = ["FARGATE"]
+      
+      container_properties = jsonencode({
+        image = "${aws_ecr_repository.data_jobs.repository_url}:etl"
+        vcpus = 4
+        memory = 8192
+        
+        environment = [
+          {
+            name  = "S3_BUCKET"
+            value = aws_s3_bucket.data_lake.bucket
+          },
+          {
+            name  = "ATHENA_DATABASE"
+            value = module.athena.database_name
+          }
+        ]
+        
+        jobRoleArn = aws_iam_role.batch_job_role.arn
+        executionRoleArn = aws_iam_role.batch_execution_role.arn
+      })
+    }
+
+---
+# ========================================
+# 10. MONITORING CONFIGURATION
+# ========================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitoring-config
+data:
+  prometheus-rules.yaml: |
+    groups:
+    - name: serverless.rules
+      rules:
+      - alert: ServerlessHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second"
+      
+      - alert: ServerlessHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is {{ $value }} seconds"
+  
+  grafana-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Serverless Applications",
+        "panels": [
+          {
+            "title": "Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total[5m])",
+                "legendFormat": "{{instance}}"
+              }
+            ]
+          },
+          {
+            "title": "Error Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{status=~\"5..\"}[5m])",
+                "legendFormat": "{{instance}}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+---
+# ========================================
+# 11. SECURITY CONFIGURATION
+# ========================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-config
+data:
+  network-policy.yaml: |
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: serverless-web-app-netpol
+    spec:
+      podSelector:
+        matchLabels:
+          app: serverless-web-app
+      policyTypes:
+      - Ingress
+      - Egress
+      ingress:
+      - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        ports:
+        - protocol: TCP
+          port: 8080
+      egress:
+      - to: []
+        ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+  
+  pod-security-policy.yaml: |
+    apiVersion: policy/v1beta1
+    kind: PodSecurityPolicy
+    metadata:
+      name: serverless-web-app-psp
+    spec:
+      privileged: false
+      allowPrivilegeEscalation: false
+      requiredDropCapabilities:
+        - ALL
+      volumes:
+        - 'configMap'
+        - 'emptyDir'
+        - 'projected'
+        - 'secret'
+        - 'downwardAPI'
+        - 'persistentVolumeClaim'
+      runAsUser:
+        rule: 'MustRunAsNonRoot'
+      seLinux:
+        rule: 'RunAsAny'
+      fsGroup:
+        rule: 'RunAsAny'
+
+---
+# ========================================
+# NOTES
+# ========================================
+# 1. Replace ACCOUNT with your AWS account ID
+# 2. Replace region with your AWS region
+# 3. Update repository URLs to match your ECR repositories
+# 4. Adjust resource limits based on your requirements
+# 5. Configure proper IAM roles and permissions
+# 6. Set up monitoring and alerting
+# 7. Implement proper security policies
+# 8. Use secrets management for sensitive data
+# 9. Configure proper logging and log aggregation
+# 10. Test all configurations in a development environment first

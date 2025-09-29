@@ -10,7 +10,7 @@ This Terraform configuration creates a comprehensive data engineering and applic
 - **Cost Optimized**: Uses Spot instances, Fargate Spot, and free monitoring
 - **Security**: VPC isolation, security groups, IAM roles, Secrets Manager
 - **Monitoring**: Prometheus, Grafana, ELK Stack, Jaeger
-- **Orchestration**: ECS Fargate, Kubernetes (Minikube), ArgoCD
+- **Orchestration**: ECS Fargate, Kubernetes (k3s), ArgoCD
 - **Data Platform**: S3 Data Lake, AWS Glue, ECR repositories
 
 ---
@@ -256,7 +256,7 @@ resource "aws_vpc" "main" {
 
 ---
 
-### **8. Kubernetes (Minikube)**
+### **8. Kubernetes (k3s)**
 **File**: `kubernetes.tf`
 **Purpose**: Container orchestration and GitOps
 
@@ -268,21 +268,22 @@ resource "aws_vpc" "main" {
 - **Storage**: 20 GB GP3 encrypted
 - **Networking**: Public subnet, Kubernetes security group
 
-#### **Minikube Installation**
-- **Driver**: Docker
-- **Resources**: 1536 MB RAM, 1 CPU (optimized for t3.small)
+#### **k3s Installation**
+- **Distribution**: k3s (lightweight Kubernetes)
+- **Resources**: Optimized for t3.small instance
 - **Add-ons**: Helm, ArgoCD
+- **Access**: SSH tunneling required for external access
 
 #### **ArgoCD Integration**
 - **Namespace**: argocd
-- **Service Type**: NodePort (30080)
-- **Access**: Web UI and CLI
+- **Service Type**: ClusterIP with port-forwarding
+- **Access**: SSH tunnel + kubectl port-forward
 - **Purpose**: GitOps for Kubernetes deployments
 
 **Kubernetes Benefits:**
-- **Portable**: Works on any cloud or on-premises
+- **Lightweight**: k3s is more efficient than Minikube
+- **Production-like**: Real Kubernetes distribution
 - **GitOps**: ArgoCD for declarative deployments
-- **Learning**: Great for understanding container orchestration
 - **Cost Effective**: Single EC2 instance for development
 
 ---
@@ -442,7 +443,7 @@ Traces → Jaeger
 - **S3**: ~$5-10 (depending on data volume)
 - **ECR**: ~$1-2 (image storage)
 - **ECS**: $0 (no running tasks by default)
-- **EC2 (K8s)**: ~$15-20 (t3.small)
+- **EC2 (k3s)**: ~$15-20 (t3.small)
 - **EC2 (Monitoring)**: ~$15-20 (t3.small)
 - **Secrets Manager**: ~$2-5 (5 secrets)
 - **Total**: ~$40-60/month (development)
@@ -476,13 +477,19 @@ terraform apply
 # Get service URLs
 terraform output
 
-# SSH to Kubernetes
-ssh -i ~/.ssh/oci_ed25519 ec2-user@<kubernetes-ip>
+# SSH to Kubernetes (k3s)
+ssh -i ~/.ssh/terraform-key.pem ec2-user@<kubernetes-ip>
 
-# Access monitoring
+# Access monitoring (Docker Compose on EC2-1)
 # Prometheus: http://<monitoring-ip>:9090
-# Grafana: http://<monitoring-ip>:3000
+# Grafana: http://<monitoring-ip>:3000 (admin/admin123)
 # Kibana: http://<monitoring-ip>:5601
+
+# Access ArgoCD (requires SSH tunnel)
+# 1. SSH to k3s instance
+# 2. kubectl port-forward svc/argocd-server -n argocd 8080:443
+# 3. SSH tunnel: ssh -L 8080:localhost:8080 ec2-user@<k3s-ip>
+# 4. Access: https://localhost:8080
 ```
 
 ---
